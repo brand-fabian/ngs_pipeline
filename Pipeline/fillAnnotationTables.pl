@@ -352,11 +352,11 @@ if ($gnomadConstraintsFile ne "" )
 		exit (-1);
 	}
 
-	my $exit_code = system("zcat $gnomadConstraintsFile | mysql -h$host -u$user -p$password $database --local-infile=1 -e 'LOAD DATA LOCAL INFILE \"/dev/stdin\" INTO TABLE $gnomadconstraintstable;'");
-	if ($exit_code != 0) {
-		$logger->error("Can't open pipe to MySQL: | mysql -h$host -u$user -p******* $database --local-infile=1 -e 'LOAD DATA LOCAL INFILE \"/dev/stdin\" INTO TABLE $gnomadconstraintstable;'");
-		exit($exit_code >> 8);
-	}
+	my $command="zcat $gnomadConstraintsFile | mysql -h$host -u$user -p$password $database --local-infile=1 -e 'LOAD DATA LOCAL INFILE \"/dev/stdin\" INTO TABLE $gnomadconstraintstable;'";
+	
+	if (&Utilities::executeCommand($command, "Importing GnomAD constraints table", $logger)) {
+			exit;
+	} 
 
 }
 
@@ -384,6 +384,8 @@ if ($gnomadFolder ne "")
 			$logger->debug("Opening now file $gnomadFile - to load into GnomAD-table $gnomadtable");
 			open GN, $gnomadFile or exit $logger->error("Can't open $gnomadFile!");
 			
+			my $vars = 0;
+
 			while(<GN>){
 				
 				next if $_ =~ /^#/; #skip header 
@@ -519,6 +521,12 @@ if ($gnomadFolder ne "")
 					
 					#print MYSQL "0"."\t".$chr.$columns[0]."\t".$newentry_start."\t".$newref."\t".$newalt."\t".$filter."\t".$nfe_homref."\t".$het_nfe[$i]."\t".$hom_nfe[$i]."\t".$afr_homref."\t".$het_afr[$i]."\t".$hom_afr[$i]."\t".$popmax_homref."\t".$het_popmax[$i]."\t".$hom_popmax[$i]."\n";
 					print MYSQL "0"."\t".$chr.$columns[0]."\t".$newentry_start."\t".$newref."\t".$newalt."\t".$filter."\t".$nfe_homref."\t".$het_nfe[$i]."\t".$hom_nfe[$i]."\t".$afr_homref."\t".$het_afr[$i]."\t".$hom_afr[$i]."\t".$af_popmax[$i]."\t".$homref."\t".$het[$i]."\t".$hom[$i]."\n";
+				}
+
+				$vars++;
+				if ($vars % 100000 == 0) {
+					close MYSQL;
+					open MYSQL, "| mysql -h$host -u$user -p$password $database --local-infile=1 -e 'LOAD DATA LOCAL INFILE \"/dev/stdin\" INTO TABLE $gnomadtable;'" or exit $logger->error("Can't open pipe to MySQL: | mysql -h$host -u$user -p******* $database --local-infile=1 -e 'LOAD DATA LOCAL INFILE \"/dev/stdin\" INTO TABLE $gnomadtable;'");
 				}
 			}
 			close GN;
